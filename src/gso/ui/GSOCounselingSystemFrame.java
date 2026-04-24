@@ -1,4 +1,5 @@
-import java.awt.BasicStroke;
+package gso.ui;
+
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
@@ -11,18 +12,10 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
-import java.awt.Insets;
 import java.awt.RenderingHints;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import javax.swing.BorderFactory;
@@ -42,7 +35,6 @@ import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.UIManager;
 import javax.swing.border.Border;
@@ -51,69 +43,23 @@ import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 
-public class GSOCounselingSystem extends JFrame {
+import gso.model.AdminAccount;
+import gso.model.AppData;
+import gso.model.CounselorAccount;
+import gso.model.DateOption;
+import gso.model.SessionRecord;
+import gso.model.StudentRecord;
+import gso.service.CounselingDataService;
+import gso.service.DataStore;
+
+import static gso.constants.AppConstants.*;
+import static gso.ui.UITheme.*;
+
+public class GSOCounselingSystemFrame extends JFrame {
 
     private static final long serialVersionUID = 1L;
 
-    private static final String DATA_FILE_NAME = "gso-data.ser";
-
-    private static final String CARD_COUNSELOR_SELECT = "CARD1";
-    private static final String CARD_BOOKING_FORM = "CARD2";
-    private static final String CARD_THANK_YOU = "CARD3";
-    private static final String CARD_COUNSELOR_LOGIN = "CARD4";
-    private static final String CARD_COUNSELOR_SIGNUP = "CARD4_SIGNUP";
-    private static final String CARD_SESSION_ALERT = "CARD5";
-    private static final String CARD_WORKSPACE = "CARD6";
-    private static final String CARD_CANCELLATION = "CARD7";
-    private static final String CARD_SCHEDULE = "CARD8";
-    private static final String CARD_ADMIN_LOGIN = "CARD9";
-    private static final String CARD_ADMIN_SIGNUP = "CARD9_SIGNUP";
-    private static final String CARD_ADMIN_MENU = "CARD10";
-    private static final String CARD_MANAGE_PEOPLE = "CARD11";
-    private static final String CARD_MANAGE_SESSIONS = "CARD12";
-
-    private static final String STATUS_PENDING = "Pending";
-    private static final String STATUS_IN_PROGRESS = "In Progress";
-    private static final String STATUS_FINISHED = "Finished";
-    private static final String STATUS_CANCELLED = "Cancelled";
-
-    private static final String[] TIME_SLOTS = {
-        "08:00 AM - 09:00 AM",
-        "09:00 AM - 10:00 AM",
-        "10:00 AM - 11:00 AM",
-        "11:00 AM - 12:00 PM",
-        "01:00 PM - 02:00 PM",
-        "02:00 PM - 03:00 PM",
-        "03:00 PM - 04:00 PM"
-    };
-
-    private static final Color C_BG = new Color(0xF4F2EE);
-    private static final Color C_BG2 = new Color(0xECEAE4);
-    private static final Color C_WHITE = Color.WHITE;
-    private static final Color C_BORDER = new Color(0xD6D3CB);
-    private static final Color C_BORDER2 = new Color(0xB8B4AA);
-    private static final Color C_TEXT = new Color(0x1A1917);
-    private static final Color C_TEXT2 = new Color(0x5A5850);
-    private static final Color C_TEXT3 = new Color(0x9A9689);
-    private static final Color C_ACCENT = new Color(0x1A5C3A);
-    private static final Color C_ACCENT2 = new Color(0x2D7A52);
-    private static final Color C_ACCENT_LT = new Color(0xE8F2EC);
-    private static final Color C_RED = new Color(0xC0392B);
-    private static final Color C_RED_LT = new Color(0xFDF0EE);
-    private static final Color C_AMBER = new Color(0xB5620C);
-    private static final Color C_AMBER_LT = new Color(0xFEF3E6);
-    private static final Color C_BLUE = new Color(0x1A4A7A);
-    private static final Color C_BLUE_LT = new Color(0xE8F0FA);
-
-    private static final Font F_TITLE = new Font("Segoe UI Semibold", Font.PLAIN, 22);
-    private static final Font F_HEAD = new Font("Segoe UI Semibold", Font.PLAIN, 16);
-    private static final Font F_SUB = new Font("Segoe UI", Font.PLAIN, 13);
-    private static final Font F_BODY = new Font("Segoe UI", Font.PLAIN, 12);
-    private static final Font F_SMALL = new Font("Segoe UI", Font.PLAIN, 11);
-    private static final Font F_LABEL = new Font("Segoe UI", Font.BOLD, 11);
-    private static final Font F_CLOCK = new Font("Segoe UI Light", Font.PLAIN, 13);
-
-    private final File dataFile = new File(DATA_FILE_NAME);
+    private final DataStore dataStore = new DataStore(DATA_FILE_NAME);
     private final DateTimeFormatter storageDateFormatter = DateTimeFormatter.ISO_LOCAL_DATE;
     private final DateTimeFormatter displayDateFormatter =
         DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.ENGLISH);
@@ -210,9 +156,12 @@ public class GSOCounselingSystem extends JFrame {
     private DefaultTableModel adminSessionModel;
     private JTable adminSessionTable;
 
-    public GSOCounselingSystem() {
+    private CounselingDataService dataService;
+
+    public GSOCounselingSystemFrame() {
         super("GSO Counseling System");
         data = loadData();
+        dataService = new CounselingDataService(data);
 
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(1120, 760);
@@ -2490,24 +2439,12 @@ public class GSOCounselingSystem extends JFrame {
     }
 
     private AppData loadData() {
-        if (!dataFile.exists()) {
-            return new AppData();
-        }
-
-        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(dataFile))) {
-            Object loaded = in.readObject();
-            if (loaded instanceof AppData) {
-                return (AppData) loaded;
-            }
-        } catch (Exception ignored) {
-        }
-
-        return new AppData();
+        return dataStore.load();
     }
 
     private void saveData() {
-        try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(dataFile))) {
-            out.writeObject(data);
+        try {
+            dataStore.save(data);
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(
                 this,
@@ -2518,171 +2455,75 @@ public class GSOCounselingSystem extends JFrame {
     }
 
     private List<CounselorAccount> getActiveCounselors() {
-        List<CounselorAccount> result = new ArrayList<>();
-        for (CounselorAccount counselor : getSortedCounselors()) {
-            if (counselor.active) {
-                result.add(counselor);
-            }
-        }
-        return result;
+        return dataService.getActiveCounselors();
     }
 
     private List<CounselorAccount> getSortedCounselors() {
-        List<CounselorAccount> result = new ArrayList<>(data.counselors);
-        result.sort(Comparator.comparing(c -> normalize(c.fullName)));
-        return result;
+        return dataService.getSortedCounselors();
     }
 
     private List<StudentRecord> getSortedStudents() {
-        List<StudentRecord> result = new ArrayList<>(data.students);
-        result.sort(Comparator.comparing(s -> normalize(s.fullName)));
-        return result;
+        return dataService.getSortedStudents();
     }
 
     private List<SessionRecord> getCounselorSessions(String counselorUsername) {
-        List<SessionRecord> result = new ArrayList<>();
-        for (SessionRecord session : data.sessions) {
-            if (session.counselorUsername.equals(counselorUsername)) {
-                result.add(session);
-            }
-        }
-        return result;
+        return dataService.getCounselorSessions(counselorUsername);
     }
 
     private CounselorAccount findCounselorByUsername(String username) {
-        for (CounselorAccount counselor : data.counselors) {
-            if (normalize(counselor.username).equals(normalize(username))) {
-                return counselor;
-            }
-        }
-        return null;
+        return dataService.findCounselorByUsername(username);
     }
 
     private CounselorAccount findCounselorByEmail(String email) {
-        for (CounselorAccount counselor : data.counselors) {
-            if (normalize(counselor.email).equals(normalize(email))) {
-                return counselor;
-            }
-        }
-        return null;
+        return dataService.findCounselorByEmail(email);
     }
 
     private AdminAccount findAdminByUsername(String username) {
-        for (AdminAccount admin : data.admins) {
-            if (normalize(admin.username).equals(normalize(username))) {
-                return admin;
-            }
-        }
-        return null;
+        return dataService.findAdminByUsername(username);
     }
 
     private StudentRecord findStudentByEmail(String email) {
-        for (StudentRecord student : data.students) {
-            if (normalize(student.email).equals(normalize(email))) {
-                return student;
-            }
-        }
-        return null;
+        return dataService.findStudentByEmail(email);
     }
 
     private boolean hasScheduleConflict(String counselorUsername, String dateIso, String timeSlot, int ignoreSessionId) {
-        for (SessionRecord session : data.sessions) {
-            if (session.id == ignoreSessionId) {
-                continue;
-            }
-            if (!session.counselorUsername.equals(counselorUsername)) {
-                continue;
-            }
-            if (!session.dateIso.equals(dateIso) || !session.timeSlot.equals(timeSlot)) {
-                continue;
-            }
-            if (!STATUS_CANCELLED.equals(session.status)) {
-                return true;
-            }
-        }
-        return false;
+        return dataService.hasScheduleConflict(counselorUsername, dateIso, timeSlot, ignoreSessionId);
     }
 
     private boolean hasSessionsForCounselor(String username) {
-        for (SessionRecord session : data.sessions) {
-            if (session.counselorUsername.equals(username)) {
-                return true;
-            }
-        }
-        return false;
+        return dataService.hasSessionsForCounselor(username);
     }
 
     private boolean hasSessionsForStudent(String email) {
-        for (SessionRecord session : data.sessions) {
-            if (session.studentEmail.equalsIgnoreCase(email)) {
-                return true;
-            }
-        }
-        return false;
+        return dataService.hasSessionsForStudent(email);
     }
 
     private CounselorAccount counselorByUsername(String username) {
-        return findCounselorByUsername(username);
+        return dataService.counselorByUsername(username);
     }
 
     private SessionRecord firstActiveSessionForCounselor(String username) {
-        for (SessionRecord session : sortSessionsByDate(getCounselorSessions(username), true)) {
-            if (!STATUS_FINISHED.equals(session.status) && !STATUS_CANCELLED.equals(session.status)) {
-                return session;
-            }
-        }
-        return null;
+        return dataService.firstActiveSessionForCounselor(username);
     }
 
     private List<SessionRecord> sortSessionsByDate(List<SessionRecord> sessions, boolean ascending) {
-        List<SessionRecord> result = new ArrayList<>(sessions);
-        Comparator<SessionRecord> comparator = Comparator
-            .comparing((SessionRecord session) -> session.dateIso)
-            .thenComparingInt(session -> timeSlotIndex(session.timeSlot))
-            .thenComparingInt(session -> session.id);
-
-        result.sort(ascending ? comparator : comparator.reversed());
-        return result;
+        return dataService.sortSessionsByDate(sessions, ascending);
     }
 
     private int timeSlotIndex(String timeSlot) {
-        for (int i = 0; i < TIME_SLOTS.length; i++) {
-            if (TIME_SLOTS[i].equals(timeSlot)) {
-                return i;
-            }
-        }
-        return Integer.MAX_VALUE;
+        return dataService.timeSlotIndex(timeSlot);
     }
 
     private int countActiveCounselors() {
-        int count = 0;
-        for (CounselorAccount counselor : data.counselors) {
-            if (counselor.active) {
-                count++;
-            }
-        }
-        return count;
+        return dataService.countActiveCounselors();
     }
 
     private int countTodaySessions() {
-        String today = LocalDate.now().format(storageDateFormatter);
-        int count = 0;
-        for (SessionRecord session : data.sessions) {
-            if (today.equals(session.dateIso)) {
-                count++;
-            }
-        }
-        return count;
+        return dataService.countTodaySessions();
     }
 
     private int countPendingSessions() {
-        int count = 0;
-        for (SessionRecord session : data.sessions) {
-            if (STATUS_PENDING.equals(session.status)) {
-                count++;
-            }
-        }
-        return count;
+        return dataService.countPendingSessions();
     }
 
     private String displayDate(String isoDate) {
@@ -2821,117 +2662,5 @@ public class GSOCounselingSystem extends JFrame {
 
     private void showInfo(String message) {
         JOptionPane.showMessageDialog(this, message, "Info", JOptionPane.INFORMATION_MESSAGE);
-    }
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(GSOCounselingSystem::new);
-    }
-
-    private static class DateOption {
-        private final String value;
-        private final String label;
-
-        DateOption(String value, String label) {
-            this.value = value;
-            this.label = label;
-        }
-
-        @Override
-        public String toString() {
-            return label;
-        }
-    }
-
-    private static class AppData implements Serializable {
-        private static final long serialVersionUID = 1L;
-
-        private final List<AdminAccount> admins = new ArrayList<>();
-        private final List<CounselorAccount> counselors = new ArrayList<>();
-        private final List<StudentRecord> students = new ArrayList<>();
-        private final List<SessionRecord> sessions = new ArrayList<>();
-        private int nextAdminId = 1;
-        private int nextCounselorId = 1;
-        private int nextStudentId = 1;
-        private int nextSessionId = 1;
-    }
-
-    private static class AdminAccount implements Serializable {
-        private static final long serialVersionUID = 1L;
-
-        private int id;
-        private String fullName = "";
-        private String username = "";
-        private String password = "";
-    }
-
-    private static class CounselorAccount implements Serializable {
-        private static final long serialVersionUID = 1L;
-
-        private int id;
-        private String fullName = "";
-        private String specialization = "";
-        private String email = "";
-        private String contact = "";
-        private String username = "";
-        private String password = "";
-        private boolean active = true;
-    }
-
-    private static class StudentRecord implements Serializable {
-        private static final long serialVersionUID = 1L;
-
-        private int id;
-        private String fullName = "";
-        private String course = "";
-        private String email = "";
-        private String contact = "";
-    }
-
-    private static class SessionRecord implements Serializable {
-        private static final long serialVersionUID = 1L;
-
-        private int id;
-        private String counselorUsername = "";
-        private String counselorName = "";
-        private String studentEmail = "";
-        private String studentName = "";
-        private String course = "";
-        private String dateIso = "";
-        private String timeSlot = "";
-        private String topic = "";
-        private String notes = "";
-        private String recommendations = "";
-        private String cancellationReason = "";
-        private String status = STATUS_PENDING;
-    }
-
-    static class RoundedBorder implements Border {
-        private final Color color;
-        private final int radius;
-
-        RoundedBorder(Color color, int radius) {
-            this.color = color;
-            this.radius = radius;
-        }
-
-        @Override
-        public Insets getBorderInsets(Component c) {
-            return new Insets(radius / 2, radius / 2, radius / 2, radius / 2);
-        }
-
-        @Override
-        public boolean isBorderOpaque() {
-            return false;
-        }
-
-        @Override
-        public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(color);
-            g2.setStroke(new BasicStroke(1f));
-            g2.drawRoundRect(x, y, width - 1, height - 1, radius, radius);
-            g2.dispose();
-        }
     }
 }
